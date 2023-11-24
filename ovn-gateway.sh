@@ -31,11 +31,11 @@ ovn-nbctl lsp-set-options ls1-lr1 router-port=lr1-ls1
 dhcp_sw1=`ovn-nbctl create DHCP_Options cidr=192.168.1.0/24 options="\"server_id\"=\"192.168.1.1\" \"server_mac\"=\"52:54:00:c1:68:50\" \"lease_time\"=\"3600\" \"router\"=\"192.168.1.1\""`
 
 ovn-nbctl ls-add ls-outside
-ovn-nbctl lrp-add router1 router1-ls-outside 02:ac:10:ff:00:02 100.73.95.249/19
+ovn-nbctl lrp-add router1 router1-ls-outside 52:54:00:c1:68:40 100.73.95.249/19
 
 ovn-nbctl lsp-add ls-outside ls-outside-router1
 ovn-nbctl lsp-set-type ls-outside-router1 router
-ovn-nbctl lsp-set-addresses ls-outside-router1 02:ac:10:ff:00:02
+ovn-nbctl lsp-set-addresses ls-outside-router1 52:54:00:c1:68:40
 ovn-nbctl lsp-set-options ls-outside-router1 router-port=router1-ls-outside
 
 ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phy:br-phy
@@ -44,8 +44,17 @@ ovn-nbctl lsp-set-addresses ls-outside-localnet unknown
 ovn-nbctl lsp-set-type ls-outside-localnet localnet
 ovn-nbctl lsp-set-options ls-outside-localnet network_name=phy
 
+# SNAT
 ovn-nbctl lr-nat-add router1 snat 100.73.95.248 192.168.1.0/24
 ovn-nbctl lr-route-add router1 "0.0.0.0/0" 100.73.95.254
+
+# DNAT
+ovn-nbctl lb-add lb1 100.73.95.246:80 192.168.1.10:8080 tcp
+ovn-nbctl set logical_router router1 load_balancer=`ovn-nbctl lb-list lb1 | grep lb1 | cut -d' ' -f 1`
+
+# QoS
+ovn-nbctl qos-add lswitch1 from-lport 100 "inport == \"ls1-vm1\"" rate=50000 burst=50000
+ovn-nbctl qos-add lswitch1 to-lport 100 "outport == \"ls1-vm1\"" rate=50000 burst=50000
 
 ovn-nbctl lsp-add lswitch1 ls1-vm1
 ovn-nbctl lsp-set-addresses ls1-vm1 "02:ac:10:ff:01:33 192.168.1.10"
